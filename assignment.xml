@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="baaf0c9b-e21a-48f9-89fb-94b93ae76a8e" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="1c68bbe5-c41d-4a0f-bd6c-e4810a868904" >
+		<http:request-connection host="dummy.restapiexample.com" />
+	</http:request-config>
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="cde1be26-bb4f-41f0-a377-c44202b924fe" >
+		<s3:basic-connection accessKey="AKIARMIE5KI733IA5CQR" secretKey="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" region="US_EAST_2" />
+	</s3:config>
+	<http:request-config name="HTTP_Request_configuration1" doc:name="HTTP Request configuration" doc:id="d9aa030c-c88a-4196-b149-4e73592579e8" >
+		<http:request-connection host="dummy.restapiexample.com" />
+	</http:request-config>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="98ecb4a0-1237-49db-ad46-a89ea87ff82d" >
+		<email:smtp-connection host="smtp.gmail.com" port="587" user="tech.suraj123@gmail.com" password="sequence" >
+			<email:properties >
+				<email:property key="mail.smtp.starttls.enable" value="true" />
+			</email:properties>
+		</email:smtp-connection>
+	</email:smtp-config>
+	<s3:config name="Amazon_S3_Configuration1" doc:name="Amazon S3 Configuration" doc:id="e1ca93ae-c380-4d9c-a01a-3a749b5ee0ef" >
+		<s3:basic-connection accessKey="AKIARMIE5KI733IA5CQR" secretKey="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" region="US_EAST_2" />
+	</s3:config>
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="569c21a4-8711-4b19-94b1-ee49bb985e42" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="assignmentFlow" doc:id="ec033d1b-c436-40a6-8087-7431b774abd6" >
+		<http:listener doc:name="employee" doc:id="f06c158f-7ac3-43c1-b827-fcf02376ca83" config-ref="HTTP_Listener_config" path="/empsRecord" allowedMethods="GET"/>
+		<http:request method="GET" doc:name="Invoke rest api" doc:id="b70acbc3-3d3d-4324-8b88-91ceeb51526e" config-ref="HTTP_Request_configuration" path="/api/v1/employees"/>
+		<ee:transform doc:name="Transform Message" doc:id="202b54b0-f8c2-41ed-b7dd-c81613aa4b77" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="assignmentBatch_Job" doc:id="920ba248-5e8a-4d6a-800d-4658b90d7d84" >
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="c46d4fad-13b8-4ade-bf2e-02c6dc1c6be4">
+					<ee:transform doc:name="Transform Message" doc:id="70fb9c67-f29e-4a92-a170-55a925b5499f" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="0b672273-ec4e-47ab-a88c-0693fd934012" size="10">
+						<s3:create-object doc:id="ac80159d-0cff-4ba9-85cd-31598cc2253f" config-ref="Amazon_S3_Configuration" bucketName="assignment-123" key="record.text" acl="PUBLIC_READ_WRITE"/>
+						<ee:transform doc:name="Transform Message" doc:id="3854db35-b819-4dc9-a45d-4f084ad1ae6a" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</batch:aggregator>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="206e39b9-8c60-419d-816a-00e262ce9135" message='"on completed-------------------"'/>
+			</batch:on-complete>
+		</batch:job>
+		<logger level="INFO" doc:name="Logger" doc:id="7d950259-9b13-49c0-b23b-b2f8fa121382" message='"complete process --------"'/>
+	</flow>
+	<flow name="assignmentFlow1" doc:id="ba3c06e2-bbb4-4499-ad94-89385441f109" >
+		<http:listener doc:name="/GET test" doc:id="cfbe8450-453b-4317-ad8e-e1870975f105" config-ref="HTTP_Listener_config1" path="/test"/>
+		<http:request method="GET" doc:name="Invoke Employee WS" doc:id="ca9698f5-69b9-488d-9229-d66af9f74212" config-ref="HTTP_Request_configuration1" path="/api/v1/employees"/>
+		<ee:transform doc:name="Transform Message" doc:id="49fa21e5-b004-4602-9178-d1bf808df38a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+(payload.data map(data, index) -> {
+	Id : data.id,
+	Name: data.employee_name,
+	Age : data.employee_age,
+	salary : data.employee_salary
+} as Object)
+
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<s3:create-object doc:name="insert employee in s3" doc:id="62bab306-ce30-4598-8df3-76a429b491a4" config-ref="Amazon_S3_Configuration1" bucketName="db-test123" key="record">
+				</s3:create-object>
+		<s3:get-object doc:name="Get employee record" doc:id="78617390-f33e-449c-aff7-48313ce13e64" config-ref="Amazon_S3_Configuration" bucketName="db-test123" key="record"/>
+		<email:send doc:id="6388147e-d68c-4618-8dcb-f9ff3ab65cb4" config-ref="Email_SMTP" fromAddress="tech.suraj123@gmail.com" subject="Helow Mule Assignment" doc:name="Send Email with csv file">
+			<email:to-addresses >
+				<email:to-address value="suraj543kum@gmail.com" />
+				<email:to-address value="14suraj15@gmail.com" />
+			</email:to-addresses>
+			<email:body contentType="text/html" >
+				<email:content ><![CDATA[#["<H1>My First Mule Program</H1>"]]]></email:content>
+			</email:body>
+			<email:attachments ><![CDATA[#[{
+	"Attachement.csv" : payload
+}]]]></email:attachments>
+		</email:send>
+		<logger level="INFO" doc:name="Logger" doc:id="612b8f7a-fc6a-4907-8b36-5c074f4f7713" message='"Mail Sent"'/>
+	</flow>
+</mule>
